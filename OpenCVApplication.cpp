@@ -1066,62 +1066,95 @@ void cutImage() {
 /******************************************************
 						 LAB 5
 *******************************************************/
-//empty a queue
-void clear(std::queue<Point2i> &q)
-{
-	std::queue<Point2i> empty;
-	std::swap(q, empty);
-}
 
 //1. BFS algorithm for labeling
-void bfsObjectLabeling(int neighborNr) {
+//2. Create color image based on labeling
+//4. Create intermediary results after labeling
+void bfsObjectLabeling() {
 	char fname[MAX_PATH];
+
+	int neighborNr;
+	printf("How many neighbors? 4 or 8?\n");
+	scanf("%d", &neighborNr);
+	if (neighborNr != 8 && neighborNr != 4) {
+		printf("Wrong input!!\n");
+		return;
+	}
+	bool pause = false;
+	printf("Do you want to see intermediary results? y/n\n");
+	char c;
+	scanf(" %c", &c);
+	if (c == 'y' || c == 'Y') {
+		pause = true;
+	} else if (c !='n' && c != 'N') {
+		printf("Wrong input!!\n");
+		return;
+	}
+
 	while (openFileDlg(fname)) {
 		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
-		Mat labels = Mat::zeros(img.rows, img.cols, CV_16SC1);
+		Mat labels = Mat::zeros(img.rows, img.cols, CV_8UC1);
+		Mat dst = Mat(img.rows, img.cols, CV_8UC3);
+
 		int label = 0;
-		//std::queue<Point2i> Q;
+		
 		int di[8] = { -1,0,1,0,1,1,-1,-1 };
 		int dj[8] = { 0,-1,0,1,1,-1,1,-1 };
-		std::default_random_engine gen;
-		std::uniform_int_distribution<int> d(0, 255);
+		
 		Vec3b randPixel;
-		Mat dst = Mat(img.rows, img.cols, CV_8UC3);
 		int nbX, nbY;
+
+		/*std::default_random_engine gen;
+		std::uniform_int_distribution<int> d(0, 255);
+		uchar r, g, b;*/
+
+		//Initialize destination image to white
+		for (int i = 0; i < dst.rows; i++) {
+			for (int j = 0; j < dst.cols; j++) {
+				dst.at<Vec3b>(i, j) = Vec3b(255, 255, 255);
+			}
+		}
 
 		for (int i = 0; i < img.rows; i++) {
 			for (int j = 0; j < img.cols; j++) {
-				if ((img.at<uchar>(i, j) == 0) && (labels.at<short>(i, j) == 0)) {
+				if (img.at<uchar>(i, j) == 0 && labels.at<uchar>(i, j) == 0) {
 					label++;
-					labels.at<short>(i, j) = label;
-					randPixel = Vec3b(label, label, label);
+					labels.at<uchar>(i, j) = label;
+
+					//Generate random color
+					/*uchar r = d(gen);
+					uchar g = d(gen);
+					uchar b = d(gen);*/
+					randPixel = Vec3b(rand()%256, rand() % 256, rand() % 256);
 					dst.at<Vec3b>(i, j) = randPixel;
 
-					//clear(Q);
 					std::queue<Point2i> Q;
-					Q.push({ i,j }); // add element onto the top of the queue (newest)
+					Q.push({ i,j });			// add element onto the top of the queue (newest)
 
 					while (!Q.empty()) {
-						Point2i p = Q.front(); // acces the element from the bottom of the queue (oldest element)
-						Q.pop(); // removes the element from the top of the queue (newest)
+						Point2i p = Q.front();  // acces the element from the bottom of the queue (oldest element)
+						Q.pop();				// removes the element from the top of the queue (newest)
 
-						//check all neighbors
+						//Check all neighbors
 						for (int k = 0; k < neighborNr; k++) {
-							nbX = p.x + dj[k];
-							nbY = p.y + di[k];
-							if ((nbX >= 0) && (nbY < img.rows) && (nbY >= 0) && (nbX < img.cols)) {
-								if ((img.at<uchar>(nbY, nbX) == 0) && (labels.at<short>(nbY, nbX) == 0)) {
-									labels.at<short>(nbY, nbX) = label;
-									dst.at<Vec3b>(nbY, nbX) = randPixel;
+							nbX = p.x + di[k];
+							nbY = p.y + dj[k];
+							if (nbX >= 0 && nbX < img.rows && nbY >= 0 && nbY < img.cols) {
+								if (img.at<uchar>(nbX, nbY) == 0 && labels.at<uchar>(nbX, nbY) == 0) {
+									labels.at<uchar>(nbX, nbY) = label;
+									dst.at<Vec3b>(nbX, nbY) = randPixel;
 
-									Q.push({ nbY, nbX });
+									Q.push({ nbX, nbY });
 								}
 							}
 						}
 					}
-				}
-				else {
-					dst.at<Vec3b>(i, j) = Vec3b(255, 255, 255);
+
+					if (pause) {
+						//Display inermediary results
+						imshow("Objects", dst);
+						waitKey(0);
+					}
 				}
 			}
 		}
@@ -1135,6 +1168,7 @@ void bfsObjectLabeling(int neighborNr) {
 int main()
 {
 	int op;
+	int nghb;
 	do
 	{
 		system("cls");
@@ -1247,7 +1281,7 @@ int main()
 			cutImage();
 			break;
 		case 50:
-			bfsObjectLabeling(8);
+			bfsObjectLabeling();
 			break;
 		}
 	} while (op != 0);
