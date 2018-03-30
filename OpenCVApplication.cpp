@@ -1086,7 +1086,8 @@ void bfsObjectLabeling() {
 	scanf(" %c", &c);
 	if (c == 'y' || c == 'Y') {
 		pause = true;
-	} else if (c !='n' && c != 'N') {
+	}
+	else if (c != 'n' && c != 'N') {
 		printf("Wrong input!!\n");
 		return;
 	}
@@ -1097,10 +1098,10 @@ void bfsObjectLabeling() {
 		Mat dst = Mat(img.rows, img.cols, CV_8UC3);
 
 		int label = 0;
-		
+
 		int di[8] = { -1,0,1,0,1,1,-1,-1 };
 		int dj[8] = { 0,-1,0,1,1,-1,1,-1 };
-		
+
 		Vec3b randPixel;
 		int nbX, nbY;
 
@@ -1125,7 +1126,7 @@ void bfsObjectLabeling() {
 					/*uchar r = d(gen);
 					uchar g = d(gen);
 					uchar b = d(gen);*/
-					randPixel = Vec3b(rand()%256, rand() % 256, rand() % 256);
+					randPixel = Vec3b(rand() % 256, rand() % 256, rand() % 256);
 					dst.at<Vec3b>(i, j) = randPixel;
 
 					std::queue<Point2i> Q;
@@ -1165,6 +1166,173 @@ void bfsObjectLabeling() {
 	}
 }
 
+/******************************************************
+						  LAB 6
+*******************************************************/
+void borderTracing8Conn() {
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat dst = Mat::zeros(img.rows, img.cols, CV_8UC1);
+
+		//neighbor coordinate difference arrays
+		int di[8] = { 0, -1, -1, -1, 0, 1, 1, 1 };
+		int dj[8] = { 1, 1, 0, -1, -1, -1, 0, 1 };
+
+		//iteration points
+		Point startPoint;
+		Point secondPoint;
+		Point previousPoint;
+		Point currentPoint;
+
+		//some definitions
+		int dir_prev = 7;
+		int i, j;
+
+		int dir;
+		int border[100000];
+		int borderDer[100000];
+		int borderIndex = 0;
+
+		uchar background = 255;
+
+		/****find first point******/
+		bool isFound = false;
+		for (i = 0; i < img.rows; i++) {
+			for (j = 0; j < img.cols; j++) {
+				if (img.at<uchar>(i, j) != background) {
+					startPoint = Point(i, j);
+					isFound = true;
+					break;
+
+				}
+			}
+			if (isFound) {
+				break;
+			}
+		}
+		/**********/
+
+		//***find second point***
+		if (dir_prev % 2 == 0) {
+			//previous direction nr is even
+			dir = (dir_prev + 7) % 8;
+		}
+		else {
+			//previous direction nr is odd
+			dir = (dir_prev + 6) % 8;
+		}
+		for (i = dir; i < dir + 8; i++) {
+			if (img.at<uchar>(startPoint.x + di[i % 8], startPoint.y + dj[i % 8]) != background) {
+				secondPoint = Point(startPoint.x + di[i % 8], startPoint.y + dj[i % 8]);
+				dir_prev = i % 8;
+				border[borderIndex++] = dir_prev;
+				break;
+			}
+		}
+		/************/
+
+		previousPoint = startPoint;
+		currentPoint = secondPoint;
+
+		do {
+			if (dir_prev % 2 == 0) {
+				//previous direction nr is even
+				dir = (dir_prev + 7) % 8;
+			}
+			else {
+				//previous direction nr is odd
+				dir = (dir_prev + 6) % 8;
+			}
+			for (i = dir; i < dir + 8; i++) {
+				if (img.at<uchar>(currentPoint.x + di[i % 8], currentPoint.y + dj[i % 8]) != background) {
+					previousPoint = currentPoint;
+					currentPoint = Point(currentPoint.x + di[i % 8], currentPoint.y + dj[i % 8]);
+					dir_prev = i % 8;
+					border[borderIndex++] = dir_prev;
+					break;
+				}
+			}
+		} while (!(currentPoint == secondPoint && previousPoint == startPoint));
+
+		//drawing the final result from the border array
+		dst.at<uchar>(startPoint.x, startPoint.y) = 255;
+		currentPoint = startPoint;
+		
+		for (i = 0; i < borderIndex; i++) {
+			currentPoint = Point(currentPoint.x + di[border[i]], currentPoint.y + dj[border[i]]);
+			dst.at<uchar>(currentPoint.x, currentPoint.y) = 255;
+		}
+
+		//calculating derivative chain
+		for (i = 0; i<borderIndex; i++)
+		{
+			borderDer[i] = border[(i + 1) % borderIndex] - border[i];
+			if (borderDer[i] < 0) {
+				borderDer[i] += 8;
+			}
+		}
+
+		//writing chain code to txt file
+		std::ofstream arrayData("array.txt");
+		arrayData << "Chain code:" << std::endl;
+		for (i = 0; i<borderIndex; i++)
+		{
+			arrayData << border[i] << " "; //Outputs array to txtFile
+		}
+		arrayData << "Derivative chain code:" << std::endl;
+		for (i = 0; i<borderIndex; i++)
+		{
+			arrayData << borderDer[i] << " "; //Outputs array to txtFile
+		}
+		arrayData.close();
+
+		imshow("Image", img);
+		imshow("Border", dst);
+
+		waitKey(0);
+	}
+}
+
+//EX3 - RECONSTRUCT
+void reconstructBorder() {
+	char* fname ="Images\\L6images\\gray_background.bmp";
+	Mat dst = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+
+	Point startPoint;
+	int length;
+	int border[100000];
+
+	//neighbor coordinate difference arrays
+	int di[8] = { 0, -1, -1, -1, 0, 1, 1, 1 };
+	int dj[8] = { 1, 1, 0, -1, -1, -1, 0, 1 };
+
+	std::ifstream inFile;
+	inFile.open("Images\\L6images\\reconstruct.txt");
+	if (inFile.is_open()) {
+		while (!inFile.eof()) {
+
+			inFile >> startPoint.x >> startPoint.y;
+			inFile >> length;
+			for (int i = 0; i < length; i++) {
+				inFile >> border[i];
+			}
+		}
+	}
+	inFile.close();
+
+	//drawing the final result from the border array
+	dst.at<uchar>(startPoint.x, startPoint.y) = 0;
+
+	for (int i = 0; i < length; i++) {
+		startPoint = Point(startPoint.x + di[border[i]], startPoint.y + dj[border[i]]);
+		dst.at<uchar>(startPoint.x, startPoint.y) = 0;
+	}
+
+	imshow("Image", dst);
+	waitKey(0);
+}
+
 int main()
 {
 	int op;
@@ -1200,6 +1368,8 @@ int main()
 		printf(" 40 - Compute geometric properties\n");
 		printf(" 41 - Cut objects from image\n");
 		printf(" 50 - Label objects and color them\n");
+		printf(" 60 - Border tracing - 8 connectivity\n");
+		printf(" 61 - Reconstruct border from file\n");
 		printf(" 0 - Exit\n\n");
 		printf("Option: ");
 		scanf("%d", &op);
@@ -1282,6 +1452,12 @@ int main()
 			break;
 		case 50:
 			bfsObjectLabeling();
+			break;
+		case 60:
+			borderTracing8Conn();
+			break;
+		case 61:
+			reconstructBorder();
 			break;
 		}
 	} while (op != 0);
