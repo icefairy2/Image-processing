@@ -1258,14 +1258,14 @@ void borderTracing8Conn() {
 		//drawing the final result from the border array
 		dst.at<uchar>(startPoint.x, startPoint.y) = 255;
 		currentPoint = startPoint;
-		
+
 		for (i = 0; i < borderIndex; i++) {
 			currentPoint = Point(currentPoint.x + di[border[i]], currentPoint.y + dj[border[i]]);
 			dst.at<uchar>(currentPoint.x, currentPoint.y) = 255;
 		}
 
 		//calculating derivative chain
-		for (i = 0; i<borderIndex; i++)
+		for (i = 0; i < borderIndex; i++)
 		{
 			borderDer[i] = border[(i + 1) % borderIndex] - border[i];
 			if (borderDer[i] < 0) {
@@ -1276,12 +1276,12 @@ void borderTracing8Conn() {
 		//writing chain code to txt file
 		std::ofstream arrayData("array.txt");
 		arrayData << "Chain code:" << std::endl;
-		for (i = 0; i<borderIndex; i++)
+		for (i = 0; i < borderIndex; i++)
 		{
 			arrayData << border[i] << " "; //Outputs array to txtFile
 		}
 		arrayData << "Derivative chain code:" << std::endl;
-		for (i = 0; i<borderIndex; i++)
+		for (i = 0; i < borderIndex; i++)
 		{
 			arrayData << borderDer[i] << " "; //Outputs array to txtFile
 		}
@@ -1296,7 +1296,7 @@ void borderTracing8Conn() {
 
 //EX3 - RECONSTRUCT
 void reconstructBorder() {
-	char* fname ="Images\\L6images\\gray_background.bmp";
+	char* fname = "Images\\L6images\\gray_background.bmp";
 	Mat dst = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
 
 	Point startPoint;
@@ -1331,6 +1331,294 @@ void reconstructBorder() {
 
 	imshow("Image", dst);
 	waitKey(0);
+}
+
+/******************************************************
+						LAB 7
+*******************************************************/
+#define STRUCT_ELEM_SIZE 4
+
+//let's define the structuring element as an array of points
+//having as coordinates the relative distance from the origin of the structuring element
+Point struct_elem[STRUCT_ELEM_SIZE] = {
+	Point(0, -1), Point(-1, 0), Point(0, 1), Point(1, 0) };
+
+//given a treshold, it turns a grayscale image to binary
+Mat toBinaryImage(Mat src) {
+	Mat dst = Mat::zeros(src.rows, src.cols, CV_8UC1);
+	for (int i = 0; i < src.rows; i++) {
+		for (int j = 0; j < src.cols; j++) {
+			if (src.at<uchar>(i, j) < 100) {
+				//black
+				dst.at<uchar>(i, j) = 0;
+			}
+			else {
+				//white
+				dst.at<uchar>(i, j) = 255;
+			}
+		}
+	}
+	return dst;
+}
+
+//returns a dilated image, given the predefined structuring element
+Mat dilation(Mat src) {
+	Mat dst = Mat::zeros(src.rows, src.cols, CV_8UC1);
+	int i, j, k;
+	//copy original image
+	src.copyTo(dst);
+	for (i = 0; i < src.rows; i++) {
+		for (j = 0; j < src.cols; j++) {
+			//if we hit an object pixel
+			if (src.at<uchar>(i, j) != 255) {
+				//loop over all structuring element pixels
+				for (k = 0; k < STRUCT_ELEM_SIZE; k++) {
+					//if the str. el. pixel is not outside the image
+					if (i + struct_elem[k].x >= 0 && i + struct_elem[k].x < src.rows &&
+						j + struct_elem[k].y >= 0 && j + struct_elem[k].y < src.cols)
+						//set also this pixel black on final image
+						dst.at<uchar>(i + struct_elem[k].x, j + struct_elem[k].y) = 0;
+				}
+			}
+		}
+	}
+	return dst;
+}
+
+//returns an eroded image with the predefined structuring element
+Mat erosion(Mat src) {
+	Mat dst = Mat::zeros(src.rows, src.cols, CV_8UC1);
+	int i, j, k;
+	bool isCovering;
+	for (i = 0; i < src.rows; i++) {
+		for (j = 0; j < src.cols; j++) {
+			//set final image white
+			dst.at<uchar>(i, j) = 255;
+			//if we hit an object pixel
+			if (src.at<uchar>(i, j) != 255) {
+				isCovering = true;
+				//check if all structuring element covers the object pixels
+				for (k = 0; k < STRUCT_ELEM_SIZE; k++) {
+					if (i + struct_elem[k].x >= 0 && i + struct_elem[k].x < src.rows &&
+						j + struct_elem[k].y >= 0 && j + struct_elem[k].y < src.cols) {
+						if (src.at<uchar>(i + struct_elem[k].x, j + struct_elem[k].y) == 255) {
+							isCovering = false;
+						}
+					}
+				}
+				//if yes, set the origin point black
+				if (isCovering) {
+					dst.at<uchar>(i, j) = 0;
+				}
+			}
+		}
+	}
+	return dst;
+}
+
+
+
+void dilationImg() {
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat binary = toBinaryImage(img);
+		Mat dst = dilation(binary);
+
+		imshow("Image", img);
+		imshow("Dilated", dst);
+		waitKey(0);
+	}
+}
+
+void erosionImg() {
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat binary = toBinaryImage(img);
+		Mat dst = erosion(binary);
+
+		imshow("Image", img);
+		imshow("Eroded", dst);
+		waitKey(0);
+	}
+}
+
+void openingImg() {
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat binary = toBinaryImage(img);
+
+		//(A (-) B) (+) B
+		Mat dst1 = erosion(binary);
+		Mat dst = dilation(dst1);
+
+		imshow("Image", img);
+		imshow("Opened", dst);
+		waitKey(0);
+	}
+}
+
+void closingImg() {
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat binary = toBinaryImage(img);
+
+		//(A (+) B) (-) B
+		Mat dst1 = dilation(binary);
+		Mat dst = erosion(dst1);
+
+		imshow("Image", img);
+		imshow("Closed", dst);
+		waitKey(0);
+	}
+}
+
+void boundaryExtraction() {
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat binary = toBinaryImage(img);
+
+		Mat eroded = erosion(binary);
+		Mat dst = eroded - binary;
+
+		//difference will give the negative so reverse it
+		for (int i = 0; i < dst.rows; i++) {
+			for (int j = 0; j < dst.cols; j++) {
+				dst.at<uchar>(i, j) = 255 - dst.at<uchar>(i, j);
+			}
+		}
+
+		imshow("Image", img);
+		imshow("Processed", dst);
+		waitKey(0);
+	}
+}
+
+//return true if the two matrices have exactly the same pixels
+bool areEqual(Mat a, Mat b) {
+	for (int i = 0; i < a.rows; i++) {
+		for (int j = 0; j < a.cols; j++) {
+			if (a.at<uchar>(i, j) != b.at<uchar>(i, j)) {
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+void regionFilling() {
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat binary = toBinaryImage(img);
+
+		//take the reverse of A
+		Mat neg_binary = Mat(binary.rows, binary.cols, CV_8UC1);
+		for (int i = 0; i < binary.rows; i++) {
+			for (int j = 0; j < binary.cols; j++) {
+				neg_binary.at<uchar>(i, j) = 255 - binary.at<uchar>(i, j);
+			}
+		}
+
+		int i, j;
+		//initialize the two states to white
+		Mat xk = Mat(binary.rows, binary.cols, CV_8UC1); 
+		Mat xkprev = Mat(binary.rows, binary.cols, CV_8UC1);
+		for (i = 0; i < xk.rows; i++) {
+			for (j = 0; j < xk.cols; j++) {
+				xk.at<uchar>(i, j) = 255;
+				xkprev.at<uchar>(i, j) = 255;
+			}
+		}
+
+		//set a black pixel int the interior of the object
+		//TODO: make it by click
+		xk.at<uchar>(xk.rows / 2, xk.cols / 2) = 0;
+
+		//region filling algorithm
+		while (!areEqual(xkprev, xk)) {
+			xkprev = xk;
+			xk = dilation(xkprev);
+
+			//intersection with reverse A
+			for (i = 0; i < xk.rows; i++) {
+				for (j = 0; j < xk.cols; j++) {
+					if (neg_binary.at<uchar>(i, j) != xk.at<uchar>(i, j)) {
+						xk.at<uchar>(i, j) = 255;
+					}
+				}
+			}
+		}
+
+		imshow("Image", img);
+		imshow("Processed", xk);
+		waitKey(0);
+	}
+}
+
+void morph_n_times() {
+
+	int opNr, n;
+	printf("What operation? 1-Dilation, 2-Erosion, 3-Open, 4-Close\n");
+	scanf("%d", &opNr);
+	printf("How many times?\n");
+	scanf("%d", &n);
+
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat binary = toBinaryImage(img);
+		Mat dst, buf1, buf;
+
+		switch (opNr) {
+		case 1:
+			buf = dilation(binary);
+			break;
+		case 2:
+			buf = erosion(binary);
+			break;
+		case 3:
+			buf1 = erosion(binary);
+			buf = dilation(buf1);
+			break;
+		case 4:
+			buf1 = dilation(binary);
+			buf = erosion(buf1);
+			break;
+		}
+
+		for (int i = 0; i < n; i++) {
+			switch (opNr) {
+			case 1:
+				dst = dilation(buf);
+				buf = dst;
+				break;
+			case 2:
+				dst = erosion(buf);
+				buf = dst;
+				break;
+			case 3:
+				buf1 = erosion(buf);
+				dst = dilation(buf1);
+				buf = dst;
+				break;
+			case 4:
+				buf1 = dilation(buf);
+				buf = erosion(buf1);
+				buf = dst;
+				break;
+			}
+		}
+
+
+		imshow("Image", img);
+		imshow("Processed", dst);
+		waitKey(0);
+	}
 }
 
 int main()
@@ -1370,6 +1658,13 @@ int main()
 		printf(" 50 - Label objects and color them\n");
 		printf(" 60 - Border tracing - 8 connectivity\n");
 		printf(" 61 - Reconstruct border from file\n");
+		printf(" 70 - Dilation\n");
+		printf(" 71 - Erosion\n");
+		printf(" 72 - Opening\n");
+		printf(" 73 - Closing\n");
+		printf(" 74 - Boundary extraction\n");
+		printf(" 75 - Region filling\n");
+		printf(" 76 - Morphological operations n times\n");
 		printf(" 0 - Exit\n\n");
 		printf("Option: ");
 		scanf("%d", &op);
@@ -1458,6 +1753,27 @@ int main()
 			break;
 		case 61:
 			reconstructBorder();
+			break;
+		case 70:
+			dilationImg();
+			break;
+		case 71:
+			erosionImg();
+			break;
+		case 72:
+			openingImg();
+			break;
+		case 73:
+			closingImg();
+			break;
+		case 74:
+			boundaryExtraction();
+			break;
+		case 75:
+			regionFilling();
+			break;
+		case 76:
+			morph_n_times();
 			break;
 		}
 	} while (op != 0);
