@@ -9,7 +9,9 @@ d:\desktop\computer science year 3 sem ii\ip\labs\opencvapplication-vs2017_ocv34
 d:\desktop\computer science year 3 sem ii\ip\labs\opencvapplication-vs2017_ocv340_basic\opencvapplication.cpp(950): warning C4101: 'width': unreferenced local variable
 d:\desktop\computer science year 3 sem ii\ip\labs\opencvapplication-vs2017_ocv340_basic\opencvapplication.cpp(1042): warning C4244: '+=': conversion from 'double' to 'float', possible loss of data
 d:\desktop\computer science year 3 sem ii\ip\labs\opencvapplication-vs2017_ocv340_basic\opencvapplication.cpp(1002): warning C4101: 'angle': unreferenced local variable
-d:\desktop\computer science year 3 sem ii\ip\labs\opencvapplication-vs2017_ocv340_basic\opencvapplication.cpp(1627): warning C4101: 'nghb': unreferenced local variable
+d:\desktop\computer science year 3 sem ii\ip\labs\opencvapplication-vs2017_ocv340_basic\opencvapplication.cpp(1747): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+d:\desktop\computer science year 3 sem ii\ip\labs\opencvapplication-vs2017_ocv340_basic\opencvapplication.cpp(1859): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+d:\desktop\computer science year 3 sem ii\ip\labs\opencvapplication-vs2017_ocv340_basic\opencvapplication.cpp(2001): warning C4101: 'nghb': unreferenced local variable
   OpenCVApplication.vcxproj -> D:\Desktop\Computer Science year 3 sem II\IP\Labs\OpenCVApplication-VS2017_OCV340_basic\x64\Debug\OpenCVApplication.exe
   OpenCV\dll\Debug\opencv_ffmpeg340_64.dll
   OpenCV\dll\Debug\opencv_world340d.dll

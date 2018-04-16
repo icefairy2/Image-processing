@@ -1403,6 +1403,7 @@ Mat erosion(Mat src) {
 						j + struct_elem[k].y >= 0 && j + struct_elem[k].y < src.cols) {
 						if (src.at<uchar>(i + struct_elem[k].x, j + struct_elem[k].y) == 255) {
 							isCovering = false;
+							break;
 						}
 					}
 				}
@@ -1526,7 +1527,7 @@ void regionFilling() {
 
 		int i, j;
 		//initialize the two states to white
-		Mat xk = Mat(binary.rows, binary.cols, CV_8UC1); 
+		Mat xk = Mat(binary.rows, binary.cols, CV_8UC1);
 		Mat xkprev = Mat(binary.rows, binary.cols, CV_8UC1);
 		for (i = 0; i < xk.rows; i++) {
 			for (j = 0; j < xk.cols; j++) {
@@ -1621,6 +1622,406 @@ void morph_n_times() {
 	}
 }
 
+/******************************************************
+						 LAB 8
+*******************************************************/
+
+//calculate mean and standard deviation, display histogram and cummulative histogram
+void mean_and_dev_hist() {
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+
+		int i, j;
+		double mean, std_dev;
+
+		int* histogram;
+		int* cumm_histogram;
+		histogram = (int*)malloc(255 * sizeof(int));
+		cumm_histogram = (int*)malloc(255 * sizeof(int));
+
+		for (i = 0; i < 255; i++) {
+			histogram[i] = 0;
+			cumm_histogram[i] = 0;
+		}
+
+		//histogram contains the total number of pixels of each intensity level
+		for (i = 0; i < img.rows; i++) {
+			for (j = 0; j < img.cols; j++) {
+				histogram[img.at<uchar>(i, j)]++;
+			}
+		}
+
+		//cummulative histogram contains the total number of each intensity level
+		//and the nr of pixels up to that one
+		cumm_histogram[0] = histogram[0];
+		for (i = 1; i < 255; i++) {
+			cumm_histogram[i] = cumm_histogram[i - 1] + histogram[i];
+		}
+
+		//calculate mean
+		mean = 0;
+		for (i = 0; i < 255; i++) {
+			mean += histogram[i] * i;
+		}
+		mean /= img.rows * img.cols;
+
+		//calculate standard deviation
+		std_dev = 0;
+		for (i = 0; i < img.rows; i++) {
+			for (j = 0; j < img.cols; j++) {
+				std_dev += pow(img.at<uchar>(i, j) - mean, 2);
+			}
+		}
+		std_dev /= img.rows * img.cols;
+		std_dev = sqrt(std_dev);
+
+		printf("Mean: %lf\n", mean);
+		printf("Standard deviation: %lf\n", std_dev);
+
+		showHistogram("Histogram", histogram, 255, 200);
+		showHistogram("CumulativeHistogram", cumm_histogram, 255, 200);
+		imshow("Image", img);
+		waitKey(0);
+	}
+}
+
+//basic global tresholding algorithm
+void aut_treshold() {
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat dst = Mat::zeros(img.rows, img.cols, CV_8UC1);
+
+		int i, j;
+		int T, T_prev;
+		double mean1, mean2;
+		int n1, n2;
+
+		//calculate histogram
+		int* histogram;
+		histogram = (int*)malloc(255 * sizeof(int));
+
+		for (i = 0; i < 255; i++) {
+			histogram[i] = 0;
+		}
+
+		for (i = 0; i < img.rows; i++) {
+			for (j = 0; j < img.cols; j++) {
+				histogram[img.at<uchar>(i, j)]++;
+			}
+		}
+
+		//find minimum and maximum
+		int min, mini;
+		int max, maxi;
+		min = img.rows * img.cols;
+		mini = 0;
+		max = 0;
+		maxi = 0;
+		for (i = 0; i < 255; i++) {
+			if (histogram[i] > max) {
+				max = histogram[i];
+				maxi = i;
+			}
+			if (histogram[i] < min) {
+				min = histogram[i];
+				mini = i;
+			}
+		}
+
+		//initial treshold
+		T = (mini + maxi) / 2;
+		T_prev = 0;
+
+		//calculate global treshold
+		while (T - T_prev > 0.1) {
+			T_prev = T;
+
+			mean1 = 0;
+			n1 = 0;
+			for (i = mini; i < T; i++) {
+				mean1 += histogram[i] * i;
+				n1 += histogram[i];
+			}
+			mean1 /= n1;
+
+			mean2 = 0;
+			n2 = 0;
+			for (i = T; i < maxi; i++) {
+				mean2 += histogram[i] * i;
+				n2 += histogram[i];
+			}
+			mean2 /= n2;
+
+			T = (mean1 + mean2) / 2;
+		}
+
+		//construct tresholded image
+		for (i = 0; i < img.rows; i++) {
+			for (j = 0; j < img.cols; j++) {
+				if (img.at<uchar>(i, j) < T) {
+					dst.at<uchar>(i, j) = 0;
+				}
+				else {
+					dst.at<uchar>(i, j) = 255;
+				}
+			}
+		}
+
+		printf("Treshold: %d\n", T);
+
+		imshow("Image", img);
+		imshow("Tresholded", dst);
+		waitKey(0);
+	}
+}
+
+//histogram stretching and shrinking by a value
+void hist_transf() {
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat dst = Mat::zeros(img.rows, img.cols, CV_8UC1);
+
+		int i, j;
+		int val = 20;
+
+		printf("Please input value: ");
+		scanf("%d", &val);
+
+		int* histogram;
+		histogram = (int*)malloc(255 * sizeof(int));
+
+		int* new_histogram;
+		new_histogram = (int*)malloc(255 * sizeof(int));
+
+		int* new_color;
+		new_color = (int*)malloc(255 * sizeof(int));
+
+		//compute histogram
+		for (i = 0; i < 255; i++) {
+			histogram[i] = 0;
+			new_histogram[i] = 0;
+		}
+
+		for (i = 0; i < img.rows; i++) {
+			for (j = 0; j < img.cols; j++) {
+				histogram[img.at<uchar>(i, j)]++;
+			}
+		}
+
+		//calculate for each color the new color
+		for (i = 0; i < 255; i++) {
+			new_color[i] = val + i * (255 - 2 * val) / 255;
+			if (new_color[i] > 255) {
+				new_color[i] = 255;
+			}
+			if (new_color[i] < 0) {
+				new_color[i] = 0;
+			}
+		}
+
+		//construct output image
+		for (i = 0; i < img.rows; i++) {
+			for (j = 0; j < img.cols; j++) {
+				dst.at<uchar>(i, j) = new_color[img.at<uchar>(i, j)];
+			}
+		}
+
+		//calculate new histogram
+		for (i = 0; i < dst.rows; i++) {
+			for (j = 0; j < dst.cols; j++) {
+				new_histogram[dst.at<uchar>(i, j)]++;
+			}
+		}
+
+		showHistogram("Histogram", histogram, 255, 200);
+		showHistogram("TransformedHistogram", new_histogram, 255, 200);
+
+		imshow("Image", img);
+		imshow("Transformed", dst);
+		waitKey(0);
+	}
+}
+
+//gamma correction - will enhance brighter/darker regions depending on a value
+void gamma_correction() {
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat dst = Mat::zeros(img.rows, img.cols, CV_8UC1);
+
+		int i, j;
+
+		float gamma;
+
+		printf("Please input gamma (float close to one): ");
+		scanf("%f", &gamma);
+
+		int* histogram;
+		histogram = (int*)malloc(255 * sizeof(int));
+
+		int* new_color;
+		new_color = (int*)malloc(255 * sizeof(int));
+
+		for (i = 0; i < 255; i++) {
+			histogram[i] = 0;
+		}
+
+		for (i = 0; i < img.rows; i++) {
+			for (j = 0; j < img.cols; j++) {
+				histogram[img.at<uchar>(i, j)]++;
+			}
+		}
+
+		//compute new color
+		for (i = 0; i < 255; i++) {
+			new_color[i] = 255 * pow((double)i / 255, gamma);
+			if (new_color[i] > 255) {
+				new_color[i] = 255;
+			}
+			if (new_color[i] < 0) {
+				new_color[i] = 0;
+			}
+		}
+
+		for (i = 0; i < img.rows; i++) {
+			for (j = 0; j < img.cols; j++) {
+				dst.at<uchar>(i, j) = new_color[img.at<uchar>(i, j)];
+			}
+		}
+
+		imshow("Image", img);
+		imshow("Corrected", dst);
+		waitKey(0);
+	}
+}
+
+//histogram slide - brightness/darkness by value
+void hist_slide() {
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat dst = Mat::zeros(img.rows, img.cols, CV_8UC1);
+
+		int i, j;
+
+		int offset;
+
+		printf("Please input offset: ");
+		scanf("%d", &offset);
+
+		int* histogram;
+		histogram = (int*)malloc(255 * sizeof(int));
+
+		int* new_color;
+		new_color = (int*)malloc(255 * sizeof(int));
+
+		for (i = 0; i < 255; i++) {
+			histogram[i] = 0;
+		}
+
+		for (i = 0; i < img.rows; i++) {
+			for (j = 0; j < img.cols; j++) {
+				histogram[img.at<uchar>(i, j)]++;
+			}
+		}
+
+		//compute new color
+		for (i = 0; i < 255; i++) {
+			new_color[i] = i + offset;
+			if (new_color[i] > 255) {
+				new_color[i] = 255;
+			}
+			if (new_color[i] < 0) {
+				new_color[i] = 0;
+			}
+		}
+
+		for (i = 0; i < img.rows; i++) {
+			for (j = 0; j < img.cols; j++) {
+				dst.at<uchar>(i, j) = new_color[img.at<uchar>(i, j)];
+			}
+		}
+
+		imshow("Image", img);
+		imshow("Corrected", dst);
+		waitKey(0);
+	}
+}
+
+//histogram equalization algorithm
+void hist_equal() {
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat dst = Mat::zeros(img.rows, img.cols, CV_8UC1);
+
+		int i, j;
+		int M = img.rows*img.cols;
+
+		int* histogram;
+		int* cumm_histogram;
+		histogram = (int*)malloc(255 * sizeof(int));
+		cumm_histogram = (int*)malloc(255 * sizeof(int));
+
+		int* new_histogram;
+		new_histogram = (int*)malloc(255 * sizeof(int));
+
+		int* new_color;
+		new_color = (int*)malloc(255 * sizeof(int));
+
+		for (i = 0; i < 255; i++) {
+			histogram[i] = 0;
+			new_histogram[i] = 0;
+		}
+
+		for (i = 0; i < img.rows; i++) {
+			for (j = 0; j < img.cols; j++) {
+				histogram[img.at<uchar>(i, j)]++;
+			}
+		}
+
+		cumm_histogram[0] = histogram[0];
+		for (i = 1; i < 255; i++) {
+			cumm_histogram[i] = cumm_histogram[i - 1] + histogram[i];
+		}
+
+		//compute new color
+		for (i = 0; i < 255; i++) {
+			new_color[i] = 255 * cumm_histogram[i] / M;
+			if (new_color[i] > 255) {
+				new_color[i] = 255;
+			}
+			if (new_color[i] < 0) {
+				new_color[i] = 0;
+			}
+		}
+
+		//construct output image
+		for (i = 0; i < img.rows; i++) {
+			for (j = 0; j < img.cols; j++) {
+				dst.at<uchar>(i, j) = new_color[img.at<uchar>(i, j)];
+			}
+		}
+
+		//calculate equalized histogram
+		for (i = 0; i < dst.rows; i++) {
+			for (j = 0; j < dst.cols; j++) {
+				new_histogram[dst.at<uchar>(i, j)]++;
+			}
+		}
+
+		showHistogram("Histogram", histogram, 255, 200);
+		showHistogram("TransformedHistogram", new_histogram, 255, 200);
+
+		imshow("Image", img);
+		imshow("Transformed", dst);
+		waitKey(0);
+	}
+}
+
 int main()
 {
 	int op;
@@ -1665,6 +2066,12 @@ int main()
 		printf(" 74 - Boundary extraction\n");
 		printf(" 75 - Region filling\n");
 		printf(" 76 - Morphological operations n times\n");
+		printf(" 80 - Display the mean and standard deviation, the histogram\n");
+		printf(" 81 - Basic global thresholding\n");
+		printf(" 82 - Histogram transformation\n");
+		printf(" 83 - Gamma correction\n");
+		printf(" 84 - Histogram slide\n");
+		printf(" 85 - Histogram equalization\n");
 		printf(" 0 - Exit\n\n");
 		printf("Option: ");
 		scanf("%d", &op);
@@ -1774,6 +2181,24 @@ int main()
 			break;
 		case 76:
 			morph_n_times();
+			break;
+		case 80:
+			mean_and_dev_hist();
+			break;
+		case 81:
+			aut_treshold();
+			break;
+		case 82:
+			hist_transf();
+			break;
+		case 83:
+			gamma_correction();
+			break;
+		case 84:
+			hist_slide();
+			break;
+		case 85:
+			hist_equal();
 			break;
 		}
 	} while (op != 0);
