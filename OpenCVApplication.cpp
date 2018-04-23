@@ -947,7 +947,7 @@ void objectClickedCallback(int event, int x, int y, int flags, void* param)
 			//angle = round(180 * angle / PI);
 			printf("Angle: %f\n", round(180 * angle / PI));
 			Point centerMass = Point(csum, rsum);
-			float width, height;
+
 			Point endP = Point(csum + 100 * cos(angle), rsum + 100 * sin(angle));
 			line(projection, centerMass, endP, 0, 2);
 
@@ -1300,7 +1300,7 @@ void reconstructBorder() {
 	Mat dst = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
 
 	Point startPoint;
-	int length;
+	int length = 0;
 	int border[100000];
 
 	//neighbor coordinate difference arrays
@@ -1484,7 +1484,7 @@ void boundaryExtraction() {
 		Mat binary = toBinaryImage(img);
 
 		Mat eroded = erosion(binary);
-		Mat dst = eroded - binary;
+		Mat dst = abs(eroded - binary);
 
 		//difference will give the negative so reverse it
 		for (int i = 0; i < dst.rows; i++) {
@@ -1590,6 +1590,7 @@ void morph_n_times() {
 			buf1 = dilation(binary);
 			buf = erosion(buf1);
 			break;
+		default: break;
 		}
 
 		for (int i = 0; i < n; i++) {
@@ -1609,9 +1610,10 @@ void morph_n_times() {
 				break;
 			case 4:
 				buf1 = dilation(buf);
-				buf = erosion(buf1);
+				dst = erosion(buf1);
 				buf = dst;
 				break;
+			default: break;
 			}
 		}
 
@@ -1813,6 +1815,8 @@ void hist_transf() {
 
 		//calculate for each color the new color
 		for (i = 0; i < 255; i++) {
+			//goutmin = ginmin + val; goutmax = ginmax - val;
+			//ginmin = 0; ginmax = 255;
 			new_color[i] = val + i * (255 - 2 * val) / 255;
 			if (new_color[i] > 255) {
 				new_color[i] = 255;
@@ -1859,21 +1863,8 @@ void gamma_correction() {
 		printf("Please input gamma (float close to one): ");
 		scanf("%f", &gamma);
 
-		int* histogram;
-		histogram = (int*)malloc(255 * sizeof(int));
-
 		int* new_color;
 		new_color = (int*)malloc(255 * sizeof(int));
-
-		for (i = 0; i < 255; i++) {
-			histogram[i] = 0;
-		}
-
-		for (i = 0; i < img.rows; i++) {
-			for (j = 0; j < img.cols; j++) {
-				histogram[img.at<uchar>(i, j)]++;
-			}
-		}
 
 		//compute new color
 		for (i = 0; i < 255; i++) {
@@ -1912,21 +1903,8 @@ void hist_slide() {
 		printf("Please input offset: ");
 		scanf("%d", &offset);
 
-		int* histogram;
-		histogram = (int*)malloc(255 * sizeof(int));
-
 		int* new_color;
 		new_color = (int*)malloc(255 * sizeof(int));
-
-		for (i = 0; i < 255; i++) {
-			histogram[i] = 0;
-		}
-
-		for (i = 0; i < img.rows; i++) {
-			for (j = 0; j < img.cols; j++) {
-				histogram[img.at<uchar>(i, j)]++;
-			}
-		}
 
 		//compute new color
 		for (i = 0; i < 255; i++) {
@@ -1961,16 +1939,12 @@ void hist_equal() {
 		int i, j;
 		int M = img.rows*img.cols;
 
-		int* histogram;
-		int* cumm_histogram;
-		histogram = (int*)malloc(255 * sizeof(int));
-		cumm_histogram = (int*)malloc(255 * sizeof(int));
+		int * histogram = (int*)malloc(255 * sizeof(int));
+		int * cumm_histogram = (int*)malloc(255 * sizeof(int));
 
-		int* new_histogram;
-		new_histogram = (int*)malloc(255 * sizeof(int));
+		int * new_histogram = (int*)malloc(255 * sizeof(int));
 
-		int* new_color;
-		new_color = (int*)malloc(255 * sizeof(int));
+		int * new_color = (int*)malloc(255 * sizeof(int));
 
 		for (i = 0; i < 255; i++) {
 			histogram[i] = 0;
@@ -2022,10 +1996,338 @@ void hist_equal() {
 	}
 }
 
+/******************************************************
+						LAB 9
+*******************************************************/
+
+#define MASK_SIZE 3
+
+float mask[MASK_SIZE][MASK_SIZE];
+
+void initLowMask()
+{
+	for (int i = 0; i < MASK_SIZE; i++)
+	{
+		for (int j = 0; j < MASK_SIZE; j++)
+		{
+			mask[i][j] = 1.0 / 9;
+		}
+	}
+}
+
+void initHighMask()
+{
+	for (int i = 0; i < MASK_SIZE; i++)
+	{
+		for (int j = 0; j < MASK_SIZE; j++)
+		{
+			mask[i][j] = -1.0;
+		}
+	}
+	mask[MASK_SIZE / 2][MASK_SIZE / 2] = 9.0;
+}
+
+void low_pass()
+{
+	bool read = false;
+	printf("Do you want to read mask values from keyboard? y/n\n");
+	char c;
+	scanf(" %c", &c);
+	if (c == 'y' || c == 'Y') {
+		read = true;
+	}
+	else if (c != 'n' && c != 'N') {
+		printf("Wrong input!!\n");
+		return;
+	}
+
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat dst = Mat(img.rows, img.cols, CV_8UC1);
+
+		img.copyTo(dst);
+
+		int i, j;
+
+		if (read)
+		{
+			for (i = 0; i < MASK_SIZE; i++)
+			{
+				for (j = 0; j < MASK_SIZE; j++)
+				{
+					printf("Element %d %d: ", i, j);
+					scanf("%f", &mask[i][j]);
+				}
+			}
+		}
+		else
+		{
+			initLowMask();
+		}
+
+		int u, v;
+		int k = MASK_SIZE / 2;
+
+		for (i = k; i < img.rows - k; i++)
+		{
+			for (j = k; j < img.cols - k; j++)
+			{
+				dst.at<uchar>(i, j) = 0;
+				for (u = 0; u < MASK_SIZE; u++)
+				{
+					for (v = 0; v < MASK_SIZE; v++)
+					{
+						dst.at<uchar>(i, j) += mask[u][v] * img.at<uchar>(i + u - k, j + v - k);
+					}
+				}
+			}
+		}
+
+		imshow("Image", img);
+		imshow("Transformed", dst);
+		waitKey(0);
+	}
+}
+
+void high_pass()
+{
+	bool read = false;
+	printf("Do you want to read mask values from keyboard? y/n\n");
+	char c;
+	scanf(" %c", &c);
+	if (c == 'y' || c == 'Y') {
+		read = true;
+	}
+	else if (c != 'n' && c != 'N') {
+		printf("Wrong input!!\n");
+		return;
+	}
+
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat dst = Mat(img.rows, img.cols, CV_8UC1);
+
+		img.copyTo(dst);
+
+		int i, j;
+
+		if (read)
+		{
+			for (i = 0; i < MASK_SIZE; i++)
+			{
+				for (j = 0; j < MASK_SIZE; j++)
+				{
+					printf("Element %d %d: ", i, j);
+					scanf("%f", &mask[i][j]);
+				}
+			}
+		}
+		else
+		{
+			initHighMask();
+		}
+
+		int u, v;
+		int k = MASK_SIZE / 2;
+
+		float sneg = 0, spos = 0;
+
+		for (u = 0; u < MASK_SIZE; u++)
+		{
+			for (v = 0; v < MASK_SIZE; v++)
+			{
+				if (mask[u][v] < 0)
+				{
+					sneg += -mask[u][v];
+				}
+				else
+				{
+					spos += mask[u][v];
+				}
+			}
+		}
+
+		float s = max(sneg, spos);
+
+		s = 1.0 / (2 * s);
+
+		float aux;
+
+		for (i = k; i < img.rows - k; i++)
+		{
+			for (j = k; j < img.cols - k; j++)
+			{
+				aux = 0;
+				for (u = 0; u < MASK_SIZE; u++)
+				{
+					for (v = 0; v < MASK_SIZE; v++)
+					{
+						aux += mask[u][v] * img.at<uchar>(i + u - k, j + v - k);
+					}
+				}
+
+				//dst.at<uchar>(i, j) = (float)aux * s + 255.0 / 2;
+				if (aux < 0)
+				{
+					dst.at<uchar>(i, j) = 0;
+				}
+				else if (aux > 255)
+				{
+					dst.at<uchar>(i, j) = 255;
+				}
+				else {
+					dst.at<uchar>(i, j) = aux;
+				}
+			}
+		}
+
+		imshow("Image", img);
+		imshow("Transformed", dst);
+		waitKey(0);
+	}
+}
+
+void centering_transform(Mat img) {
+	//expects floating point image
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			img.at<float>(i, j) = ((i + j) & 1) ? -img.at<float>(i, j) : img.at<float>(i, j);
+		}
+	}
+}
+
+Mat generic_frequency_domain_filter(Mat src, int opt, int r, float a) {
+	//convert input image to float image
+	Mat srcf;
+	src.convertTo(srcf, CV_32FC1);
+
+	//centering transformation
+	centering_transform(srcf);
+
+	//perform forward transform with complex image output 
+	Mat fourier;
+	dft(srcf, fourier, DFT_COMPLEX_OUTPUT);
+
+	//split into real and imaginary channels 
+	Mat channels[] = { Mat::zeros(src.size(), CV_32F), Mat::zeros(src.size(), CV_32F) };
+	split(fourier, channels); // channels[0] = Re(DFT(I)), channels[1] = Im(DFT(I))
+
+	//calculate magnitude and phase in floating point images mag and phi 
+	Mat mag, phi;
+	magnitude(channels[0], channels[1], mag);
+	phase(channels[0], channels[1], phi);
+
+	//display the phase and magnitude here 
+	imshow("Magnitude", mag);
+	imshow("Phase", phi);
+
+	//insert filtering operations here 
+	int i, j;
+	int rsq = pow(r, 2);
+	float cond;
+
+	//IDEAL FILTER
+	if (opt == 1) {
+		for (i = 0; i < src.rows; i++)
+		{
+			for (j = 0; j < src.cols; j++)
+			{
+				cond = pow(src.rows / 2 - i, 2) + pow(src.cols / 2 - j, 2);
+				if (cond > rsq)
+				{
+					channels[0].at<float>(i, j) = 0;
+					channels[1].at<float>(i, j) = 0;
+				}
+			}
+		}
+	}
+
+	//GAUSSIAN LOW PASS
+	if (opt == 2) {
+		for (i = 0; i < src.rows; i++)
+		{
+			for (j = 0; j < src.cols; j++)
+			{
+				cond = pow(src.rows / 2 - i, 2) + pow(src.cols / 2 - j, 2);
+				channels[0].at<float>(i, j) = channels[0].at<float>(i, j) * exp(-cond / pow(a, 2));
+				channels[1].at<float>(i, j) = channels[1].at<float>(i, j) * exp(-cond / pow(a, 2));
+			}
+		}
+	}
+
+	//GAUSSIAN HIGH PASS
+	if (opt == 2) {
+		for (i = 0; i < src.rows; i++)
+		{
+			for (j = 0; j < src.cols; j++)
+			{
+				cond = pow(src.rows / 2 - i, 2) + pow(src.cols / 2 - j, 2);
+				channels[0].at<float>(i, j) = channels[0].at<float>(i, j) * (1 - exp(-cond / pow(a, 2)));
+				channels[1].at<float>(i, j) = channels[1].at<float>(i, j) * (1 - exp(-cond / pow(a, 2)));
+			}
+		}
+	}
+
+	//convert from polar representation to cartesian, 
+	//store in real part in channels[0] and imaginary part in channels[1] 
+	// ......
+
+	//perform inverse transform and put results in dstf 
+	Mat dst, dstf; merge(channels, 2, fourier);
+	dft(fourier, dstf, DFT_INVERSE | DFT_REAL_OUTPUT | DFT_SCALE);
+
+	//inverse centering transformation 
+	centering_transform(dstf);
+
+	//normalize the result and put it in the destination image 
+	normalize(dstf, dst, 0, 255, NORM_MINMAX, CV_8UC1);
+
+	return dst;
+}
+
+void ideal_filter()
+{
+	int opt;
+	printf("Please input your option: \n Ideal filter - 1 \n Gaussian low pass - 2 \n Gaussian high pass - 3 \n ");
+	scanf(" %d", &opt);
+
+	int r = 0;
+	float a = 0;
+
+	if (opt == 0 || opt > 3)
+	{
+		printf("Wrong input! \n");
+		return;
+	}
+
+	if (opt == 1) {
+		printf("Please input the radius of the circle: \n");
+		scanf(" %d", &r);
+	}
+	else {
+		printf("Please input the A: \n");
+		scanf(" %f", &a);
+	}
+
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat dst = Mat(img.rows, img.cols, CV_8UC1);
+
+		dst = generic_frequency_domain_filter(img, opt, r, a);
+
+		imshow("Image", img);
+		imshow("Transformed", dst);
+		waitKey(0);
+	}
+}
+
+
 int main()
 {
 	int op;
-	int nghb;
 	do
 	{
 		system("cls");
@@ -2072,6 +2374,9 @@ int main()
 		printf(" 83 - Gamma correction\n");
 		printf(" 84 - Histogram slide\n");
 		printf(" 85 - Histogram equalization\n");
+		printf(" 90 - Low-pass filter\n");
+		printf(" 91 - High-pass filter\n");
+		printf(" 92 - Ideal/Gaussian low/high pass frequency domain filter\n");
 		printf(" 0 - Exit\n\n");
 		printf("Option: ");
 		scanf("%d", &op);
@@ -2199,6 +2504,15 @@ int main()
 			break;
 		case 85:
 			hist_equal();
+			break;
+		case 90:
+			low_pass();
+			break;
+		case 91:
+			high_pass();
+			break;
+		case 92:
+			ideal_filter();
 			break;
 		}
 	} while (op != 0);
