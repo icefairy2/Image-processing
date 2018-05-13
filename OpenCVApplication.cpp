@@ -2324,6 +2324,640 @@ void ideal_filter()
 	}
 }
 
+/******************************************************
+					   LAB 10
+*******************************************************/
+
+int compareint(const void * a, const void * b)
+{
+	return (*(int*)a - *(int*)b);
+}
+
+void median_filter()
+{
+	int w = 3;
+	printf("Please input the w: \n");
+	scanf(" %d", &w);
+
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat dst = Mat(img.rows, img.cols, CV_8UC1);
+
+		img.copyTo(dst);
+
+		int i, j, x, y;
+
+		double t = (double)getTickCount(); // Get the current time [ms]
+
+		int arr[200];
+		int arrl = 0;
+
+		for (i = w / 2; i < img.rows - w / 2; i++)
+		{
+			for (j = w / 2; j < img.cols - w / 2; j++)
+			{
+				arrl = 0;
+				for (x = -w / 2; x <= w / 2; x++)
+				{
+					for (y = -w / 2; y <= w / 2; y++)
+					{
+						arr[arrl] = img.at<uchar>(i + x, j + y);
+						arrl++;
+					}
+				}
+				qsort(arr, arrl, sizeof(int), compareint);
+				dst.at<uchar>(i, j) = arr[arrl / 2];
+			}
+		}
+		// Get the current time again and compute the time difference [ms]
+		t = ((double)getTickCount() - t) / getTickFrequency();
+		// Display (in the console window) the processing time in [ms]
+		printf("Time = %.3f [ms]\n", t * 1000);
+
+		imshow("Image", img);
+		imshow("Filtered", dst);
+		waitKey(0);
+	}
+}
+
+void gaussian_1d_filter()
+{
+	int w = 3;
+	printf("Please input the w: \n");
+	scanf(" %d", &w);
+
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat dst = Mat(img.rows, img.cols, CV_8UC1);
+
+		img.copyTo(dst);
+
+		int i, j, x, y;
+		float g[200];
+
+		double t = (double)getTickCount(); // Get the current time [ms]
+
+		float sigma = (float)w / 6;
+		float term = 1 / (sqrt(2 * PI) * sigma);
+
+		for (x = 0; x < w; x++)
+		{
+			g[x] = term * exp(-pow(x - w / 2, 2) / (2 * pow(sigma, 2)));
+		}
+
+		float conv;
+
+		for (i = w / 2; i < img.rows - w / 2; i++)
+		{
+			for (j = w / 2; j < img.cols - w / 2; j++)
+			{
+				conv = 0;
+				for (x = 0; x < w; x++)
+				{
+					conv += g[x] * (float)img.at<uchar>(i + x - w / 2, j);
+				}
+				dst.at<uchar>(i, j) = conv;
+			}
+		}
+
+		for (i = w / 2; i < img.rows - w / 2; i++)
+		{
+			for (j = w / 2; j < img.cols - w / 2; j++)
+			{
+				conv = 0;
+				for (y = 0; y < w; y++)
+				{
+					conv += g[y] * (float)dst.at<uchar>(i, j + y - w / 2);
+				}
+				dst.at<uchar>(i, j) = conv;
+			}
+		}
+		// Get the current time again and compute the time difference [ms]
+		t = ((double)getTickCount() - t) / getTickFrequency();
+		// Display (in the console window) the processing time in [ms]
+		printf("Time = %.3f [ms]\n", t * 1000);
+
+		imshow("Image", img);
+		imshow("Filtered", dst);
+		waitKey(0);
+	}
+}
+
+void gaussian_2d_filter()
+{
+	int w = 3;
+	printf("Please input the w: \n");
+	scanf(" %d", &w);
+
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat dst = Mat(img.rows, img.cols, CV_8UC1);
+
+		img.copyTo(dst);
+
+		int i, j, x, y;
+		float g[200][200];
+
+		double t = (double)getTickCount(); // Get the current time [ms]
+
+		float sigma = (float)w / 6;
+		float term = 1 / (2 * PI *pow(sigma, 2));
+
+		for (x = 0; x < w; x++)
+		{
+			for (y = 0; y < w; y++)
+			{
+				g[x][y] = term * exp(-(pow(x - w / 2, 2) + pow(y - w / 2, 2)) / (2 * pow(sigma, 2)));
+			}
+		}
+
+		float conv;
+
+		for (i = w / 2; i < img.rows - w / 2; i++)
+		{
+			for (j = w / 2; j < img.cols - w / 2; j++)
+			{
+				conv = 0;
+				for (x = 0; x < w; x++)
+				{
+					for (y = 0; y < w; y++)
+					{
+						conv += g[x][y] * (float)img.at<uchar>(i + x - w / 2, j + y - w / 2);
+					}
+				}
+				dst.at<uchar>(i, j) = conv;
+			}
+		}
+		// Get the current time again and compute the time difference [ms]
+		t = ((double)getTickCount() - t) / getTickFrequency();
+		// Display (in the console window) the processing time in [ms]
+		printf("Time = %.3f [ms]\n", t * 1000);
+
+		imshow("Image", img);
+		imshow("Filtered", dst);
+		waitKey(0);
+	}
+}
+
+/******************************************************
+					   LAB 11/1
+*******************************************************/
+
+Mat gradient_f(Mat img, float mask[3][3])
+{
+	Mat gfx = Mat(img.rows, img.cols, CV_32FC1);
+
+	int i, j, x, y;
+
+	float conv;
+
+	for (i = 1; i < img.rows - 1; i++)
+	{
+		for (j = 1; j < img.cols - 1; j++)
+		{
+			conv = 0;
+			for (x = 0; x < 3; x++)
+			{
+				for (y = 0; y < 3; y++)
+				{
+					conv += mask[x][y] * (float)img.at<uchar>(i + x - 1, j + y - 1);
+				}
+			}
+			gfx.at<float>(i, j) = conv;
+		}
+	}
+
+	return gfx;
+}
+
+Mat gradient_magnitude(Mat gfx, Mat gfy)
+{
+	Mat gf = Mat(gfx.rows, gfx.cols, CV_32FC1);
+
+	for (int i = 0; i < gfx.rows; i++)
+	{
+		for (int j = 0; j < gfx.cols; j++)
+		{
+			gf.at<float>(i, j) = (float)sqrt(pow(gfx.at<float>(i, j), 2) + pow(gfy.at<float>(i, j), 2)) / ((float)4 * sqrt(2));
+		}
+	}
+	return gf;
+}
+
+Mat gradient_direction(Mat gfx, Mat gfy)
+{
+	Mat gf = Mat(gfx.rows, gfx.cols, CV_32FC1);
+
+	for (int i = 0; i < gfx.rows; i++)
+	{
+		for (int j = 0; j < gfx.cols; j++)
+		{
+			gf.at<float>(i, j) = (float)atan2(gfy.at<float>(i, j), gfx.at<float>(i, j));
+		}
+	}
+	return gf;
+}
+
+Mat to_uchar_mat(Mat img)
+{
+	Mat dst = Mat(img.rows, img.cols, CV_8UC1);
+	for (int i = 0; i < img.rows; i++)
+	{
+		for (int j = 0; j < img.cols; j++)
+		{
+			dst.at<uchar>(i, j) = (uchar)img.at<float>(i, j);
+		}
+	}
+	return dst;
+}
+
+void compute_gradients()
+{
+	int m = 2;
+	printf("Please input the method nr: \n Previtt - 1 \n Sobel - 2 \n Roberts - 3 \n");
+	scanf(" %d", &m);
+
+	if (!(m == 1 || m == 2 || m == 3))
+	{
+		printf("Wrong input!\n");
+		return;
+	}
+
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat gfx, gfy;
+		Mat gfxx, gfyy;
+
+		float maskpx[3][3] = { { -1, 0, 1 },{ -1, 0, 1 },{ -1, 0, 1 } };
+		float maskpy[3][3] = { { 1, 1, 1 },{ 0, 0 , 0 },{ -1, -1, -1 } };
+
+		float masksx[3][3] = { { -1, 0, 1 },{ -2, 0, 2 },{ -1, 0, 1 } };
+		float masksy[3][3] = { { 1, 2, 1 },{ 0, 0 , 0 },{ -1, -2, -1 } };
+
+		switch (m)
+		{
+		case 1: //Prewitt
+			gfx = gradient_f(img, maskpx);
+			gfy = gradient_f(img, maskpy);
+
+			gfxx = to_uchar_mat(gfx);
+			gfyy = to_uchar_mat(gfy);
+
+			imshow("Image", img);
+			imshow("Gradient x", gfxx);
+			imshow("Gradient y", gfyy);
+			waitKey(0);
+			break;
+		case 2: //Sobel
+			gfx = gradient_f(img, masksx);
+			gfy = gradient_f(img, masksy);
+
+			gfxx = to_uchar_mat(gfx);
+			gfyy = to_uchar_mat(gfy);
+
+			imshow("Image", img);
+			imshow("Gradient x", gfxx);
+			imshow("Gradient y", gfyy);
+			waitKey(0);
+			break;
+		case 3: //Roberts
+			//TODO
+			break;
+		default:;
+		}
+	}
+}
+
+void gradients_magnitude_direction()
+{
+	int m = 2;
+	printf("Please input the method nr: \n Previtt - 1 \n Sobel - 2 \n Roberts - 3 \n");
+	scanf(" %d", &m);
+
+	if (!(m == 1 || m == 2 || m == 3))
+	{
+		printf("Wrong input!\n");
+		return;
+	}
+
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat gfx, gfy, gfm, gfd;
+		Mat gfmag;
+
+		float maskpx[3][3] = { { -1, 0, 1 },{ -1, 0, 1 },{ -1, 0, 1 } };
+		float maskpy[3][3] = { { 1, 1, 1 },{ 0, 0 , 0 },{ -1, -1, -1 } };
+
+		float masksx[3][3] = { { -1, 0, 1 },{ -2, 0, 2 },{ -1, 0, 1 } };
+		float masksy[3][3] = { { 1, 2, 1 },{ 0, 0 , 0 },{ -1, -2, -1 } };
+
+		switch (m)
+		{
+		case 1: //Prewitt
+			gfx = gradient_f(img, maskpx);
+			gfy = gradient_f(img, maskpy);
+
+			gfm = gradient_magnitude(gfx, gfy);
+			gfd = gradient_direction(gfx, gfy);
+
+			gfmag = to_uchar_mat(gfm);
+
+			imshow("Image", img);
+
+			imshow("Gradient magnitudeF", gfm);
+			imshow("Gradient magnitude", gfmag);
+			waitKey(0);
+			break;
+		case 2: //Sobel
+			gfx = gradient_f(img, masksx);
+			gfy = gradient_f(img, masksy);
+
+			gfm = gradient_magnitude(gfx, gfy);
+			gfd = gradient_direction(gfx, gfy);
+
+			gfmag = to_uchar_mat(gfm);
+
+			imshow("Image", img);
+			imshow("Gradient magnitude", gfmag);
+			waitKey(0);
+			break;
+		case 3: //Roberts
+			//TODO
+			break;
+		default:;
+		}
+	}
+}
+
+void gradients_magnitude_treshold()
+{
+	int m = 2;
+	printf("Please input the method nr: \n Previtt - 1 \n Sobel - 2 \n Roberts - 3 \n");
+	scanf(" %d", &m);
+
+	if (!(m == 1 || m == 2 || m == 3))
+	{
+		printf("Wrong input!\n");
+		return;
+	}
+
+	int tr = 10;
+	printf("Please input the treshold\n");
+	scanf(" %d", &tr);
+
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat dst = Mat::zeros(img.rows, img.cols, CV_8UC1);
+		Mat gfx, gfy, gfm;
+		Mat gfmag;
+
+		int i, j;
+
+		float maskpx[3][3] = { { -1, 0, 1 },{ -1, 0, 1 },{ -1, 0, 1 } };
+		float maskpy[3][3] = { { 1, 1, 1 },{ 0, 0 , 0 },{ -1, -1, -1 } };
+
+		float masksx[3][3] = { { -1, 0, 1 },{ -2, 0, 2 },{ -1, 0, 1 } };
+		float masksy[3][3] = { { 1, 2, 1 },{ 0, 0 , 0 },{ -1, -2, -1 } };
+
+		switch (m)
+		{
+		case 1: //Prewitt
+			gfx = gradient_f(img, maskpx);
+			gfy = gradient_f(img, maskpy);
+
+			gfm = gradient_magnitude(gfx, gfy);
+
+			gfmag = to_uchar_mat(gfm);
+
+			for (i = 0; i < gfmag.rows; i++)
+			{
+				for (j = 0; j < gfmag.cols; j++)
+				{
+					if (gfmag.at<uchar>(i, j) > tr)
+					{
+						dst.at<uchar>(i, j) = 255;
+					}
+				}
+			}
+
+			imshow("Image", img);
+			imshow("Tresholded magnitude", dst);
+			waitKey(0);
+			break;
+		case 2: //Sobel
+			gfx = gradient_f(img, masksx);
+			gfy = gradient_f(img, masksy);
+
+			gfm = gradient_magnitude(gfx, gfy);
+
+			gfmag = to_uchar_mat(gfm);
+
+			for (i = 0; i < img.rows; i++)
+			{
+				for (j = 0; j < img.cols; j++)
+				{
+					if (gfmag.at<uchar>(i, j) > tr)
+					{
+						dst.at<uchar>(i, j) = gfmag.at<uchar>(i, j);
+					}
+				}
+			}
+
+			imshow("Image", img);
+			imshow("Tresholded magnitude", dst);
+			waitKey(0);
+			break;
+		case 3: //Roberts
+				//TODO
+			break;
+		default:;
+		}
+	}
+}
+
+Mat gauss_filter(Mat img)
+{
+	Mat dst = Mat(img.rows, img.cols, CV_8UC1);
+	int w = 3;
+	img.copyTo(dst);
+
+	int i, j, x, y;
+	float g[200];
+
+	float sigma = (float)w / 6;
+	float term = 1 / (sqrt(2 * PI) * sigma);
+
+	for (x = 0; x < w; x++)
+	{
+		g[x] = term * exp(-pow(x - w / 2, 2) / (2 * pow(sigma, 2)));
+	}
+
+	float conv;
+
+	for (i = w / 2; i < img.rows - w / 2; i++)
+	{
+		for (j = w / 2; j < img.cols - w / 2; j++)
+		{
+			conv = 0;
+			for (x = 0; x < w; x++)
+			{
+				conv += g[x] * (float)img.at<uchar>(i + x - w / 2, j);
+			}
+			dst.at<uchar>(i, j) = conv;
+		}
+	}
+
+	for (i = w / 2; i < img.rows - w / 2; i++)
+	{
+		for (j = w / 2; j < img.cols - w / 2; j++)
+		{
+			conv = 0;
+			for (y = 0; y < w; y++)
+			{
+				conv += g[y] * (float)dst.at<uchar>(i, j + y - w / 2);
+			}
+			dst.at<uchar>(i, j) = conv;
+		}
+	}
+
+	return dst;
+}
+
+void canny_edge_detection()
+{
+	int m = 2;
+	printf("Please input the method nr: \n Previtt - 1 \n Sobel - 2 \n");
+	scanf(" %d", &m);
+
+	if (!(m == 1 || m == 2 || m == 3))
+	{
+		printf("Wrong input!\n");
+		return;
+	}
+
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		Mat img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat gfx, gfy, gfm, gfd;
+		Mat gfmag;
+		Mat gauss_flt;
+		Mat gfdirq = Mat(img.rows, img.cols, CV_8UC1);
+		Mat dst = Mat::zeros(img.rows, img.cols, CV_8UC1);
+
+		int i, j;
+
+		/*for(i=0; i< img.rows;i++)
+		{
+			for(j=0; j<img.cols;j++)
+			{
+				dst.at<uchar>(i, j) = 255;
+			}
+		}*/
+
+		float maskpx[3][3] = { { -1, 0, 1 },{ -1, 0, 1 },{ -1, 0, 1 } };
+		float maskpy[3][3] = { { 1, 1, 1 },{ 0, 0 , 0 },{ -1, -1, -1 } };
+
+		float masksx[3][3] = { { -1, 0, 1 },{ -2, 0, 2 },{ -1, 0, 1 } };
+		float masksy[3][3] = { { 1, 2, 1 },{ 0, 0 , 0 },{ -1, -2, -1 } };
+
+		switch (m)
+		{
+		case 1: //Prewitt
+			gauss_flt = gauss_filter(img);
+
+			gfx = gradient_f(gauss_flt, maskpx);
+			gfy = gradient_f(gauss_flt, maskpy);
+
+			gfm = gradient_magnitude(gfx, gfy);
+			gfd = gradient_direction(gfx, gfy);
+
+			for (i = 0; i < gfd.rows; i++)
+			{
+				for (j = 0; j < gfd.cols; j++)
+				{
+					gfd.at<float>(i, j) = gfd.at<float>(i, j) * 180 / PI;
+					if ((gfd.at<float>(i, j) >= -22.5 && gfd.at<float>(i, j) <= 22.5) || (gfd.at<float>(i, j) >= 157.5 && gfd.at<float>(i, j) <= 180) || (gfd.at<float>(i, j) <= -157.5 && gfd.at<float>(i, j) >= -180))
+					{
+						gfdirq.at<uchar>(i, j) = 2;
+					}
+					if ((gfd.at<float>(i, j) >= 22.5 && gfd.at<float>(i, j) <= 67.5) || (gfd.at<float>(i, j) <= -112.5 && gfd.at<float>(i, j) >= -157.5))
+					{
+						gfdirq.at<uchar>(i, j) = 1;
+					}
+					if ((gfd.at<float>(i, j) >= 67.5 && gfd.at<float>(i, j) <= 112.5) || (gfd.at<float>(i, j) <= -67.5 && gfd.at<float>(i, j) >= -112.5))
+					{
+						gfdirq.at<uchar>(i, j) = 0;
+					}
+					if ((gfd.at<float>(i, j) >= 112.5 && gfd.at<float>(i, j) <= 157.5) || (gfd.at<float>(i, j) <= -22.5 && gfd.at<float>(i, j) >= -67.5))
+					{
+						gfdirq.at<uchar>(i, j) = 3;
+					}
+
+					if (i > 0 && i < img.rows-1 && j>0 && j < img.cols-1) {
+						switch (gfdirq.at<uchar>(i, j))
+						{
+						case 0:
+							if (gfm.at<float>(i, j) > gfm.at<float>(i + 1, j) && gfm.at<float>(i, j) > gfm.at<float>(i - 1, j))
+							{
+								dst.at<uchar>(i, j) = 255;
+							}
+							break;
+						case 1:
+							if (gfm.at<float>(i, j) > gfm.at<float>(i - 1, j + 1) && gfm.at<float>(i, j) > gfm.at<float>(i + 1, j - 1))
+							{
+								dst.at<uchar>(i, j) = 255;
+							}
+							break;
+						case 2:
+							if (gfm.at<float>(i, j) > gfm.at<float>(i, j + 1) && gfm.at<float>(i, j) > gfm.at<float>(i, j - 1))
+							{
+								dst.at<uchar>(i, j) = 255;
+							}
+							break;
+						case 3:
+							if (gfm.at<float>(i, j) > gfm.at<float>(i + 1, j + 1) && gfm.at<float>(i, j) > gfm.at<float>(i - 1, j - 1))
+							{
+								dst.at<uchar>(i, j) = 255;
+							}
+							break;
+						default:
+							break;
+						}
+					}
+					//printf("%d.%d. %f dir:%d\n", i, j, gfd.at<float>(i, j), gfdirq.at<uchar>(i, j));
+				}
+			}
+
+			imshow("Image", img);
+			imshow("Edges", dst);
+			waitKey(0);
+			break;
+		case 2: //Sobel
+			gauss_flt = gauss_filter(img);
+
+			gfx = gradient_f(gauss_flt, masksx);
+			gfy = gradient_f(gauss_flt, masksy);
+
+			gfm = gradient_magnitude(gfx, gfy);
+			gfd = gradient_direction(gfx, gfy);
+
+			gfmag = to_uchar_mat(gfm);
+
+			imshow("Image", img);
+			imshow("Filtered", gauss_flt);
+			imshow("Gradient magnitude", gfmag);
+			waitKey(0);
+			break;
+		default:;
+		}
+	}
+}
 
 int main()
 {
@@ -2377,6 +3011,13 @@ int main()
 		printf(" 90 - Low-pass filter\n");
 		printf(" 91 - High-pass filter\n");
 		printf(" 92 - Ideal/Gaussian low/high pass frequency domain filter\n");
+		printf(" 100 - Median filter\n");
+		printf(" 101 - Gaussian 2D filter\n");
+		printf(" 102 - Gaussian 1D filter\n");
+		printf(" 110 - Compute gradients fx fy\n");
+		printf(" 111 - Compute gradient magnitude and direction\n");
+		printf(" 112 - Treshold the gradient\n");
+		printf(" 113 - Canny edge detection\n");
 		printf(" 0 - Exit\n\n");
 		printf("Option: ");
 		scanf("%d", &op);
@@ -2513,6 +3154,27 @@ int main()
 			break;
 		case 92:
 			ideal_filter();
+			break;
+		case 100:
+			median_filter();
+			break;
+		case 101:
+			gaussian_2d_filter();
+			break;
+		case 102:
+			gaussian_1d_filter();
+			break;
+		case 110:
+			compute_gradients();
+			break;
+		case 111:
+			gradients_magnitude_direction();
+			break;
+		case 112:
+			gradients_magnitude_treshold();
+			break;
+		case 113:
+			canny_edge_detection();
 			break;
 		}
 	} while (op != 0);
